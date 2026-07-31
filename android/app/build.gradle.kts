@@ -6,9 +6,9 @@ plugins {
 
 android {
     namespace = "com.criss10x.habit_leveling"
-    // androidx.window (lewat share_plus) menuntut kompilasi terhadap API 34+,
-    // sementara flutter.compileSdkVersion masih di bawahnya.
-    compileSdk = 35
+    // file_picker 10.x menuntut kompilasi terhadap API 36+, androidx.window
+    // (lewat share_plus) menuntut 34+. flutter.compileSdkVersion masih di bawah keduanya.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
