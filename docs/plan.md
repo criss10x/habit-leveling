@@ -87,7 +87,7 @@ dependencies:
   pedometer: ^4.0.1
   fl_chart: ^0.66.0
   share_plus: ^7.2.0
-  file_picker: ^6.1.1
+  file_picker: ^10.3.4  # 6.x masih memakai v1 embedding, gagal build di Flutter 3.44
   path_provider: ^2.1.2
 
 dev_dependencies:
