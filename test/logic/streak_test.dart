@@ -54,6 +54,19 @@ void main() {
       expect(hasil.streak, 0);
       expect(hasil.pernahPutus, isFalse);
     });
+
+    test('menahan lalu lanjut sampai kelipatan tujuh tetap memberi jeda', () {
+      final ditahan = prosesSatuHari(
+        const KeadaanStreak(streak: 6, jeda: 1),
+        false,
+      );
+      expect(ditahan.streak, 6);
+      expect(ditahan.jeda, 0);
+
+      final hasil = prosesSatuHari(ditahan, true);
+      expect(hasil.streak, 7);
+      expect(hasil.jeda, 1);
+    });
   });
 
   group('rentang panjang', () {
@@ -106,6 +119,35 @@ void main() {
       final hasil = prosesRentang(kosong, tanggal, (_) => true);
       expect(hasil.keadaan.streak, 14);
       expect(hasil.keadaan.jeda, 2);
+    });
+
+    test('rentang tercampur: lengkap, lengkap, kosong, lengkap, lengkap, kosong', () {
+      final tanggal = [
+        '2026-08-01',
+        '2026-08-02',
+        '2026-08-03',
+        '2026-08-04',
+        '2026-08-05',
+        '2026-08-06',
+      ];
+      final questSelesaiMap = {
+        '2026-08-01': true,
+        '2026-08-02': true,
+        '2026-08-03': false,
+        '2026-08-04': true,
+        '2026-08-05': true,
+        '2026-08-06': false,
+      };
+      final hasil = prosesRentang(
+        const KeadaanStreak(streak: 5, jeda: 0),
+        tanggal,
+        (t) => questSelesaiMap[t] ?? false,
+      );
+      expect(hasil.keadaan.streak, 0);
+      expect(hasil.keadaan.jeda, 0);
+      expect(hasil.tanggalDijeda, ['2026-08-03']);
+      expect(hasil.keadaan.pernahPutus, isTrue);
+      expect(hasil.keadaan.pernahPakaiJeda, isTrue);
     });
   });
 }
