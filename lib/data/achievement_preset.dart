@@ -94,13 +94,13 @@ final List<Medali> medaliPreset = [
     key: 'seimbang_5',
     nama: 'Empat Kaki',
     syarat: 'Keempat pilar mencapai level 5',
-    tercapai: (k) => k.levelPilar.values.every((l) => l >= 5),
+    tercapai: (k) => Pilar.values.every((p) => k.level(p) >= 5),
   ),
   Medali(
     key: 'seimbang_10',
     nama: 'Empat Pilar Kokoh',
     syarat: 'Keempat pilar mencapai level 10',
-    tercapai: (k) => k.levelPilar.values.every((l) => l >= 10),
+    tercapai: (k) => Pilar.values.every((p) => k.level(p) >= 10),
   ),
   Medali(
     key: 'seimbang_skor',
