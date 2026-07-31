@@ -29,7 +29,10 @@ Nomor 3 penting. Banyak hal yang terlihat seperti "kekurangan" di aplikasi ini s
 
 ## Konvensi kode
 
-- Bahasa antarmuka: **Indonesia**. Nama variabel, fungsi, dan kelas: **Inggris**. Komentar boleh Indonesia.
+- Bahasa antarmuka: **Indonesia**. Komentar boleh Indonesia.
+- **Penamaan kode:** istilah domain memakai bahasa Indonesia — `Pilar`, `jeda`, `quest`, `xpDasar`, `hitungXp`, `skorKeseimbangan`. Selebihnya Inggris: variabel lokal, helper generik, util, dan nama yang tidak membawa makna domain.
+
+  Alasannya, kosakata aplikasi ini Indonesia dari kolom database (`xp_dasar`, `jeda_tersedia`, `aktif_ids`) sampai teks layar. Memaksa lapisan nama Inggris di tengahnya menambah titik terjemahan di setiap batas baca-tulis tanpa membeli apa pun, dan sebagian istilah tidak punya padanan bersih — "jeda" bukan "pause", "pilar" bukan sekadar "category".
 - Kunci habit (`habit.key`) memakai snake_case Indonesia dan **tidak boleh diubah** setelah rilis — kunci itu tersimpan di database pengguna.
 - **Riwayat dipotret di momen kejadian, bukan dihitung ulang.** XP dibekukan di baris `logs` saat pencatatan. `quest_ids` dan `aktif_ids` dibekukan di baris `hari` saat hari itu dimulai. Jangan pernah menilai masa lalu dengan pengaturan yang berlaku sekarang — user boleh mengubah target habit dan mengaktifkan habit baru, dan riwayat tidak boleh ikut berubah karenanya. Ini invarian, bukan optimasi.
 

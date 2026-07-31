@@ -13,7 +13,7 @@
 Berlaku untuk **setiap** tugas di bawah ini.
 
 - Baca `docs/design.md` dan `docs/decisions.md` sebelum menulis kode. Bila rencana ini bertentangan dengan `docs/design.md`, `docs/design.md` yang menang — dan laporkan pertentangannya.
-- Bahasa antarmuka **Indonesia**. Nama variabel, fungsi, dan kelas **Inggris**. Komentar boleh Indonesia.
+- Bahasa antarmuka **Indonesia**. Komentar boleh Indonesia. Penamaan kode: istilah domain Indonesia (`Pilar`, `jeda`, `xpDasar`, `hitungXp`), selebihnya Inggris. Lihat `AGENTS.md`.
 - `lib/logic/` hanya berisi fungsi murni. Dilarang menyentuh database, `DateTime.now()`, atau `SharedPreferences` di dalamnya.
 - **Riwayat dipotret di momen kejadian.** XP dibekukan di `logs.xp` saat pencatatan. `quest_ids` dan `aktif_ids` dibekukan di baris `hari` saat hari itu dimulai. Pertanyaan "habit ini selesai atau belum" **selalu** dijawab `logs.xp == xp_dasar`, tidak pernah `nilai >= target`.
 - Kunci habit (`habit.key`) tidak boleh diubah setelah rilis.
