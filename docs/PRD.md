@@ -71,7 +71,7 @@ Bukan untuk: atlet yang butuh metrik latihan detail, pengguna yang ingin menghit
 
 ## Kriteria terima
 
-Versi pertama dianggap selesai bila:
+Ada sembilan kriteria fungsional plus satu kriteria kualitas kode. Versi pertama dianggap selesai bila:
 
 1. User baru bisa melewati onboarding, memilih habit, dan mencatat progres pertamanya tanpa instruksi tambahan
 2. XP, level pilar, dan level global terhitung sesuai rumus di `docs/design.md`, dibuktikan lewat unit test
@@ -81,7 +81,8 @@ Versi pertama dianggap selesai bila:
 6. Kedua notifikasi menyala di **release build**, bukan hanya debug build
 7. Setiap habit preset punya kartu penjelasan yang terisi lengkap
 8. Ekspor menghasilkan file JSON yang bisa diimpor kembali dan memulihkan seluruh keadaan
-9. `flutter analyze` bersih dan seluruh unit test lulus
+9. Mengubah target habit atau mengaktifkan habit baru tidak mengubah XP, level, maupun status hari sempurna di masa lalu — dibuktikan lewat unit test
+10. `flutter analyze` bersih dan seluruh unit test lulus
 
 ## Di luar lingkup versi pertama
 

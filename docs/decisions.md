@@ -166,7 +166,24 @@ Yang berharga dari Muslim Leveling adalah pengetahuannya — struktur service, p
 
 ---
 
-### 15. Isi kartu penjelasan hidup di Dart
+### 15. Riwayat dibekukan, bukan dihitung ulang
+
+**Dipilih:** XP disimpan per baris `logs` saat pencatatan. Status hari sempurna dan Skor Keseimbangan disimpan per baris `hari` saat pemrosesan hari.
+
+**Ditolak:** menghitung semuanya dari `logs` mentah setiap kali dibutuhkan.
+
+Menghitung ulang terlihat lebih bersih — satu sumber data, tanpa nilai turunan yang bisa basi. Tapi rancangan ini punya dua hal yang boleh berubah kapan saja: target habit dan daftar habit aktif. Begitu keduanya dipakai untuk menilai ulang masa lalu, hasilnya:
+
+- User menaikkan target langkah dari 5.000 ke 8.000, lalu seluruh riwayatnya dinilai ulang dengan target baru. XP masa lalu menyusut dan **level bisa turun** — sebagai hukuman karena menantang diri sendiri.
+- User mengaktifkan habit kesembilan, lalu hari-hari sempurna bulan lalu berhenti dianggap sempurna, karena syaratnya "semua habit aktif selesai" dan sekarang ada habit yang belum ada waktu itu.
+
+Keduanya membatalkan medali yang sudah terbuka dan melanggar janji "XP tidak pernah berkurang". Nilai turunan yang dibekukan adalah harga yang jauh lebih murah.
+
+Efek sampingnya justru benar: mengubah target hanya berlaku untuk hari-hari berikutnya.
+
+---
+
+### 16. Isi kartu penjelasan hidup di Dart
 
 **Dipilih:** `lib/data/habit_info.dart` sebagai satu-satunya tempat isi kartu penjelasan.
 

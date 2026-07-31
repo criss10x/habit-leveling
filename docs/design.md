@@ -15,6 +15,16 @@ Centang biasa adalah kasus khusus dengan `target = 1`. Tipe ini menutup 14 dari 
 
 **`waktu`** — punya `ambang` (menit sejak tengah malam) dan `arah` (`sebelum` atau `sesudah`). Nilai harian berupa jam yang dicatat user. Tercapai bila jam tersebut memenuhi arah terhadap ambang.
 
+Tipe `waktu` wajib menangani jam yang melewati tengah malam. Tidur jam 00:30 bernilai 30 menit, dan tanpa penanganan khusus 30 < 1380 sehingga "tidur sebelum jam 23" dinyatakan berhasil — persis kebalikan dari yang dimaksud. Aturannya:
+
+```
+nilai_efektif = (arah == sebelum && nilai < ambang − 720)
+                ? nilai + 1440
+                : nilai
+```
+
+Jendela 12 jam sebelum ambang itu yang memisahkan "larut malam" dari "pagi berikutnya". Untuk `tidur_sebelum_23` (ambang 1380), jam apa pun sebelum 11:00 dianggap dini hari dan digeser ke hari berikutnya, sehingga 00:30 menjadi 1470 dan gagal — benar. Untuk `bangun_konsisten` (ambang 360), `ambang − 720` bernilai negatif sehingga tidak pernah ada pergeseran — juga benar.
+
 Pedometer **bukan tipe ketiga**. Ia hanya sumber nilai untuk habit `hitung` biasa. Bila sumber tidak tersedia, habit itu jatuh ke input manual tanpa jalur kode terpisah.
 
 ### Katalog preset
@@ -99,9 +109,17 @@ Tipe `waktu`: `xp_dasar` bila tercapai, `0` bila tidak.
 
 XP proporsional adalah keputusan produk, bukan kemudahan implementasi. Setengah jalan yang dihargai adalah yang membuat orang kembali besok.
 
+### XP dibekukan saat dicatat
+
+**XP dihitung sekali saat pencatatan, lalu disimpan di baris `logs` itu sendiri.** XP tidak pernah dihitung ulang dari `xp_dasar` dan `target` yang berlaku sekarang.
+
+Ini bukan optimasi, melainkan syarat kebenaran. User boleh mengubah target — misalnya langkah 5.000 menjadi 8.000. Bila XP dihitung ulang dari target yang berlaku, seluruh riwayat ikut dinilai dengan target baru, XP masa lalu menyusut, dan level bisa **turun** hanya karena user menaikkan tantangannya sendiri. Aturan "XP tidak pernah berkurang" tidak bisa dipenuhi tanpa pembekuan ini.
+
+Konsekuensinya, mengubah target hanya berlaku untuk hari-hari berikutnya. Itu memang perilaku yang benar.
+
 ### XP pilar dan level pilar
 
-XP pilar adalah akumulasi seluruh XP habit milik pilar itu, sepanjang waktu. XP tidak pernah berkurang.
+XP pilar adalah jumlah kolom `xp` dari seluruh baris `logs` milik habit pilar itu, ditambah bagian bonus quest pilar tersebut. XP tidak pernah berkurang.
 
 Level terendah adalah **1**, dicapai dengan 0 XP. Naik dari level `L` ke `L+1` butuh `100 × L` XP. Maka XP kumulatif untuk mencapai level `L`:
 
@@ -129,6 +147,10 @@ skor = level pilar terendah / level pilar tertinggi × 100
 
 Karena level terendah adalah 1, penyebutnya tidak pernah nol. User baru mendapat skor 100. Hanya ditampilkan; tidak memengaruhi XP, level, maupun streak.
 
+**Keempat pilar selalu ikut dihitung**, termasuk pilar yang tidak punya satu pun habit aktif. Pilar yang diabaikan memang seharusnya menurunkan skor keseimbangan — itu justru informasi yang ingin ditampilkan. Karena itu lima habit yang tercentang sebagai saran saat onboarding wajib mencakup keempat pilar, supaya user baru tidak dibukakan aplikasi dengan skor rendah yang tidak ia mengerti.
+
+Skor hari itu disimpan di kolom `hari.skor_keseimbangan` saat pemrosesan hari. Tanpa itu, medali "≥90% selama 7 hari beruntun" tidak punya data untuk dievaluasi — level hanya diketahui nilainya sekarang, bukan nilainya minggu lalu.
+
 ### Bonus quest
 
 Menyelesaikan **seluruh** habit quest di hari yang sama memberi **25 XP bonus**, dibagi rata ke pilar habit-habit tersebut. Bonus hanya bisa diambil sekali per hari, ditandai lewat kolom `bonus_diambil`.
@@ -147,7 +169,7 @@ Diterapkan di `lib/logic/quest.dart` sebagai fungsi murni: masuk daftar habit ak
 4. Bila masih seri, urutkan dengan pengacakan deterministik yang diunggulkan oleh tanggal (`yyyyMMdd`)
 5. Ambil tiga teratas
 
-Bila habit aktif kurang dari tiga, seluruhnya menjadi quest.
+Bila habit preset yang aktif kurang dari tiga, seluruhnya menjadi quest. Bila tidak ada satu pun, hari itu tidak punya quest dan tidak bisa menaikkan streak — keadaan yang hanya mungkin terjadi kalau user sengaja menonaktifkan semua preset, dan pengaturan harus memperingatkannya.
 
 Karena unggulan acaknya berasal dari tanggal, quest tidak berubah saat aplikasi ditutup dan dibuka ulang di hari yang sama. Quest yang sudah tersimpan di tabel `hari` selalu dipakai apa adanya dan tidak pernah dihitung ulang.
 
@@ -188,7 +210,11 @@ untuk setiap tanggal T dari (terakhir_diproses + 1) sampai (hari_ini - 1):
     terakhir_diproses = T
 ```
 
+Selain streak dan jeda, perulangan ini juga membekukan `sempurna` dan `skor_keseimbangan` untuk tanggal yang diproses.
+
 Perulangan ini harus benar untuk celah panjang. Aplikasi yang tidak dibuka selama 30 hari akan memproses 30 tanggal sekaligus, memakai jeda yang tersedia lebih dulu, lalu mereset.
+
+**Streak yang ditampilkan** adalah nilai `meta.streak` ditambah satu bila quest hari ini sudah selesai. Penambahan itu hanya untuk tampilan dan tidak pernah ditulis ke `meta` — hari ini baru dibukukan besok, saat pemrosesan hari berjalan. Tanpa aturan ini, user yang baru menuntaskan quest hari ini akan melihat streak-nya seolah tidak bergerak.
 
 ### Waktu dan zona waktu
 
@@ -205,10 +231,12 @@ Tanggal disimpan sebagai `yyyy-MM-dd` dalam waktu lokal. Tanggal yang sudah terc
 | Streak | 4 | 7, 30, 100, 365 hari beruntun |
 | Level pilar | 12 | Tiap pilar mencapai Lv.5, Lv.10, Lv.25 |
 | Level global | 3 | Lv.10, Lv.25, Lv.50 |
-| Akumulasi | 4 | 500.000 langkah, 1.000 gelas air, 1.000 menit olahraga, 100 jurnal syukur |
+| Akumulasi | 4 | 500.000 langkah, 1.000 gelas air, 1.000 menit olahraga, 300 hal jurnal syukur |
 | Keseimbangan | 3 | Empat pilar tembus Lv.5, empat pilar tembus Lv.10, Skor Keseimbangan ≥ 90% selama 7 hari beruntun |
 | Pemulihan | 2 | Memakai jeda pertama kali, mencapai streak 7 lagi setelah streak pernah putus |
 | Konsistensi | 2 | Satu hari sempurna (semua habit aktif selesai), 10 hari sempurna |
+
+Keempat medali akumulasi dihitung dalam satuan habitnya sendiri dan sengaja disetarakan pada sekitar 100 hari pengerjaan penuh: 500.000 langkah pada target 5.000, 1.000 menit olahraga pada target 10, 300 hal jurnal pada target 3. Yang 1.000 gelas air sedikit lebih jauh, sekitar 125 hari.
 
 Medali yang terbuka memicu popup pengumuman, mengikuti pola Muslim Leveling. Medali terkunci tetap terlihat di grid beserta syaratnya — syarat yang tersembunyi tidak memotivasi siapa pun.
 
@@ -244,6 +272,7 @@ Medali yang terbuka memicu popup pengumuman, mengikuti pola Muslim Leveling. Med
 | `habit_id` | INTEGER FK | |
 | `tanggal` | TEXT | `yyyy-MM-dd` |
 | `nilai` | INTEGER | jumlah, atau menit sejak tengah malam untuk tipe `waktu` |
+| `xp` | INTEGER | XP yang dibekukan saat pencatatan |
 
 UNIQUE `(habit_id, tanggal)`. Index pada `tanggal`.
 
@@ -252,9 +281,15 @@ UNIQUE `(habit_id, tanggal)`. Index pada `tanggal`.
 | Kolom | Tipe | Catatan |
 |-------|------|---------|
 | `tanggal` | TEXT PK | |
-| `quest_ids` | TEXT | tiga id dipisah koma |
+| `quest_ids` | TEXT | hingga tiga id dipisah koma |
 | `bonus_diambil` | INTEGER | 0 / 1 |
 | `dijeda` | INTEGER | 0 / 1 |
+| `sempurna` | INTEGER | 0 / 1, dibekukan saat pemrosesan hari |
+| `skor_keseimbangan` | INTEGER | 0–100, dibekukan saat pemrosesan hari |
+
+Dua kolom terakhir dibekukan karena alasan yang sama dengan kolom `xp` di `logs`. "Hari sempurna" berarti seluruh habit yang aktif **pada hari itu** selesai; kalau dihitung ulang dari daftar aktif hari ini, hari sempurna bulan lalu bisa berubah status hanya karena user mengaktifkan habit baru hari ini. Riwayat tidak boleh berubah karena keputusan hari ini.
+
+Baris `hari` dibuat saat aplikasi pertama dibuka di tanggal tersebut. **Tanggal tanpa baris `hari` berarti aplikasi tidak dibuka hari itu, dan diperlakukan sebagai quest tidak selesai** oleh perulangan pemrosesan hari.
 
 **`meta`** — pasangan kunci-nilai: `jeda_tersedia`, `streak`, `streak_pernah_putus`, `terakhir_diproses`, `acuan_langkah`, `acuan_langkah_tanggal`, `jam_pengingat`, `maks_habit_aktif`.
 
@@ -321,7 +356,7 @@ lib/
 | `permission_handler` | izin notifikasi, exact alarm, activity recognition |
 | `pedometer` | langkah harian |
 | `fl_chart` | radar dan grafik batang |
-| `share_plus`, `file_picker` | ekspor dan impor |
+| `share_plus`, `file_picker`, `path_provider` | ekspor dan impor |
 | `flutter_lints` | analisis statis |
 
 Menambah paket di luar daftar ini butuh persetujuan pemilik repo.
@@ -332,9 +367,11 @@ Menambah paket di luar daftar ini butuh persetujuan pemilik repo.
 
 ### Onboarding
 
-Sekali di awal. Sambutan singkat menjelaskan empat pilar, lalu pemilihan habit dengan 5 tercentang sebagai saran dan batas 8 aktif, lalu pemilihan jam pengingat, lalu permintaan izin notifikasi dan pedometer.
+Sekali di awal. Sambutan singkat menjelaskan empat pilar, lalu pemilihan habit dengan 5 tercentang sebagai saran, lalu pemilihan jam pengingat, lalu permintaan izin notifikasi dan pedometer.
 
-Batas 8 adalah fitur. Dua belas habit aktif di hari pertama adalah cara tercepat membuat orang berhenti di hari ketiga. Batasnya bisa diubah di pengaturan bagi yang bersikeras.
+Lima saran bawaannya: `langkah_harian`, `minum_air`, `isi_piringku`, `tidur_sebelum_23`, `napas_meditasi` — mencakup keempat pilar, sesuai alasan di bagian Skor Keseimbangan.
+
+Batas 8 adalah fitur. Dua belas habit aktif di hari pertama adalah cara tercepat membuat orang berhenti di hari ketiga. Batasnya bisa diubah di pengaturan bagi yang bersikeras. **Batas berlaku untuk total habit aktif, preset dan custom digabung** — kalau custom kebal batas, batasnya tidak ada artinya.
 
 ### Beranda
 
@@ -390,9 +427,12 @@ Pengingat per-habit sengaja tidak dibuat. Delapan habit aktif berarti delapan no
 Unit test untuk `lib/logic/`, tanpa emulator:
 
 - XP proporsional, termasuk nilai melampaui target dan target bernilai nol
+- **XP yang dibekukan tidak berubah setelah target habit diubah** — uji regresi untuk lubang paling berbahaya di desain ini
 - Ambang level pilar dan level global di titik batas
 - Habit custom memakai XP flat 5, dan tidak pernah masuk perhitungan quest maupun medali
+- **Pergeseran tengah malam pada tipe `waktu`**: tidur 00:30 gagal untuk ambang 23:00, tidur 22:30 berhasil, bangun 05:00 berhasil untuk ambang 06:00
 - Konsumsi jeda melintasi banyak hari kosong sekaligus, termasuk kasus jeda habis di tengah celah
+- Tanggal tanpa baris `hari` diperlakukan sebagai quest tidak selesai
 - Perolehan jeda pada kelipatan 7 dan batas maksimal 3
 - Determinisme pemilihan quest untuk tanggal yang sama, dan prioritas pilar terlemah
 - Syarat setiap medali di titik batas
