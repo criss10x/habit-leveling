@@ -19,8 +19,9 @@ int hitungXp({
   if (tipe == TipeHabit.waktu) {
     return tercapaiWaktu(nilai, target) ? xpDasar : 0;
   }
+  // Penjaga pembagian nol; target dijamin minimal 1 saat input divalidasi
   if (target <= 0) return xpDasar;
-  final rasio = min(1.0, nilai / target);
+  final rasio = min(1.0, max(0.0, nilai / target));
   return (xpDasar * rasio).round();
 }
 
@@ -40,7 +41,10 @@ int levelDariXp(int xp) => _level(xp, xpUntukLevel);
 
 int levelGlobalDariXp(int xp) => _level(xp, xpUntukLevelGlobal);
 
+/// Menghitung skor keseimbangan dari tingkat empat pilar. Selalu menerima daftar
+/// empat level pilar; list kosong mengembalikan 100 tanpa error.
 int skorKeseimbangan(List<int> levelPilar) {
+  if (levelPilar.isEmpty) return 100;
   final tertinggi = levelPilar.reduce(max);
   if (tertinggi <= 0) return 100;
   return (levelPilar.reduce(min) / tertinggi * 100).round();

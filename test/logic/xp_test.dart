@@ -32,6 +32,13 @@ void main() {
       );
     });
 
+    test('nilai negatif memberi nol, bukan xp negatif', () {
+      expect(
+        hitungXp(tipe: TipeHabit.hitung, nilai: -5, target: 8, xpDasar: 10),
+        0,
+      );
+    });
+
     test('target nol tidak membelah nol', () {
       expect(
         hitungXp(tipe: TipeHabit.hitung, nilai: 5, target: 0, xpDasar: 10),
@@ -56,6 +63,14 @@ void main() {
 
     test('tidur 11:30 di luar jendela geser, dihitung apa adanya', () {
       expect(tercapaiWaktu(690, 1380), isTrue);
+    });
+
+    test('tercapaiWaktu di batas geser (ambang - 720) adalah true', () {
+      expect(tercapaiWaktu(660, 1380), isTrue);
+    });
+
+    test('tercapaiWaktu di ambang tepat adalah false', () {
+      expect(tercapaiWaktu(1380, 1380), isFalse);
     });
 
     // ambang 06:00 = 360 menit, tidak pernah bergeser
@@ -109,6 +124,14 @@ void main() {
       expect(levelDariXp(xpUntukLevel(50) - 1), 49);
       expect(levelGlobalDariXp(xpUntukLevelGlobal(80)), 80);
     });
+
+    test('levelDariXp dengan xp negatif mengembalikan 1', () {
+      expect(levelDariXp(-100), 1);
+    });
+
+    test('levelDariXp tetap benar untuk level sangat besar', () {
+      expect(levelDariXp(xpUntukLevel(1000)), 1000);
+    });
   });
 
   group('skor keseimbangan', () {
@@ -118,6 +141,10 @@ void main() {
 
     test('timpang menurunkan skor', () {
       expect(skorKeseimbangan([20, 10, 5, 5]), 25);
+    });
+
+    test('list kosong mengembalikan 100 tanpa throw', () {
+      expect(skorKeseimbangan([]), 100);
     });
   });
 
