@@ -132,6 +132,20 @@ release {
 
 Di `android/app/build.gradle`, `defaultConfig`: `minSdkVersion 26`.
 
+Aktifkan juga core library desugaring. `flutter_local_notifications` menolak dibangun tanpanya, dan kegagalannya baru muncul saat `assembleRelease` — bukan saat `pub get` maupun `flutter analyze`:
+
+```kotlin
+android {
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+}
+```
+
 Di `android/app/src/main/AndroidManifest.xml`, di dalam `<manifest>` sebelum `<application>`:
 
 ```xml
