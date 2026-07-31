@@ -31,7 +31,9 @@ Nomor 3 penting. Banyak hal yang terlihat seperti "kekurangan" di aplikasi ini s
 
 - Bahasa antarmuka: **Indonesia**. Nama variabel, fungsi, dan kelas: **Inggris**. Komentar boleh Indonesia.
 - Kunci habit (`habit.key`) memakai snake_case Indonesia dan **tidak boleh diubah** setelah rilis — kunci itu tersimpan di database pengguna.
-- **Riwayat dibekukan.** XP disimpan per baris `logs` saat pencatatan; `sempurna` dan `skor_keseimbangan` disimpan per baris `hari` saat pemrosesan hari. Jangan pernah menghitung ulang nilai masa lalu dari pengaturan yang berlaku sekarang — user boleh mengubah target habit dan mengaktifkan habit baru, dan riwayat tidak boleh ikut berubah karenanya. Ini invarian, bukan optimasi.
+- **Riwayat dipotret di momen kejadian, bukan dihitung ulang.** XP dibekukan di baris `logs` saat pencatatan. `quest_ids` dan `aktif_ids` dibekukan di baris `hari` saat hari itu dimulai. Jangan pernah menilai masa lalu dengan pengaturan yang berlaku sekarang — user boleh mengubah target habit dan mengaktifkan habit baru, dan riwayat tidak boleh ikut berubah karenanya. Ini invarian, bukan optimasi.
+
+  Perhatikan **kapan** potretnya diambil, bukan sekadar bahwa ada potret. Memotret saat pemrosesan hari sudah terlambat — pemrosesan berjalan keesokan harinya, dan daftar habit aktif bisa sudah berubah. Setiap nilai turunan baru yang bergantung pada keadaan harian harus ditulis di awal hari.
 - `lib/logic/` hanya berisi fungsi murni. Dilarang menyentuh database, `DateTime.now()`, atau `SharedPreferences` di dalamnya. Tanggal selalu dioper sebagai argumen. Ini yang membuat aturan XP, streak, dan quest bisa diuji tanpa emulator.
 - State memakai `ValueNotifier` di dalam service. Jangan menambahkan Riverpod, Bloc, atau GetX.
 - `flutter analyze` harus bersih. Import yang tidak terpakai saja membuat CI gagal.

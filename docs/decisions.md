@@ -168,9 +168,9 @@ Yang berharga dari Muslim Leveling adalah pengetahuannya — struktur service, p
 
 ### 15. Riwayat dibekukan, bukan dihitung ulang
 
-**Dipilih:** XP disimpan per baris `logs` saat pencatatan. Status hari sempurna dan Skor Keseimbangan disimpan per baris `hari` saat pemrosesan hari.
+**Dipilih:** XP disimpan per baris `logs` saat pencatatan. `quest_ids` dan `aktif_ids` disimpan per baris `hari` saat hari itu dimulai.
 
-**Ditolak:** menghitung semuanya dari `logs` mentah setiap kali dibutuhkan.
+**Ditolak:** menghitung semuanya dari `logs` mentah setiap kali dibutuhkan, dan memotret keadaan harian saat pemrosesan hari.
 
 Menghitung ulang terlihat lebih bersih — satu sumber data, tanpa nilai turunan yang bisa basi. Tapi rancangan ini punya dua hal yang boleh berubah kapan saja: target habit dan daftar habit aktif. Begitu keduanya dipakai untuk menilai ulang masa lalu, hasilnya:
 
@@ -181,9 +181,22 @@ Keduanya membatalkan medali yang sudah terbuka dan melanggar janji "XP tidak per
 
 Efek sampingnya justru benar: mengubah target hanya berlaku untuk hari-hari berikutnya.
 
+Rancangan pertama memotret keadaan harian saat **pemrosesan hari**, dan itu salah dengan cara yang halus: pemrosesan berjalan keesokan harinya, sehingga potretnya diambil setelah daftar habit aktif sempat berubah. Potret sekarang diambil di awal hari, bersamaan dengan `quest_ids`. Setelah itu status "hari sempurna" tidak perlu kolom sendiri — ia turunan dari `aktif_ids` dan `logs` yang dua-duanya sudah beku.
+
 ---
 
-### 16. Isi kartu penjelasan hidup di Dart
+### 16. Yang sengaja tidak ada di skema
+
+**Ditolak, beserta alasannya, supaya tidak ditambahkan kembali:**
+
+- **Kolom `arah` pada `habits`** dengan nilai `sebelum`/`sesudah`. Tidak ada preset yang memakai `sesudah`, dan habit custom selalu bertipe `hitung`. Tipe `waktu` selalu berarti "sebelum". Habit yang secara alami berarti "sesudah" bisa dinyatakan ulang sebagai `hitung` bertarget 1.
+- **Kolom `urutan` pada `habits`.** Tidak ada layar pengurutan habit di desain, jadi tidak ada yang mengisinya. `ORDER BY pilar, id` sudah cukup.
+- **Kolom `skor_keseimbangan` pada `hari`.** Kolom itu hanya ada demi satu medali yang mensyaratkan "≥90% selama 7 hari beruntun". Medalinya diubah menjadi "menyentuh 90%" — cukup keadaan sekarang, dan kolomnya tidak diperlukan sama sekali.
+- **File DAO terpisah** (`habit_dao.dart`, `log_dao.dart`). Empat tabel muat di satu `database.dart`. Pecah nanti kalau memang sudah kepanjangan.
+
+---
+
+### 17. Isi kartu penjelasan hidup di Dart
 
 **Dipilih:** `lib/data/habit_info.dart` sebagai satu-satunya tempat isi kartu penjelasan.
 

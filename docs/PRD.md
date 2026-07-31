@@ -50,7 +50,7 @@ Bukan untuk: atlet yang butuh metrik latihan detail, pengguna yang ingin menghit
 ### Quest harian
 - Tiga habit fokus dipilih sistem setiap hari, terkunci oleh tanggal
 - Prioritas jatuh ke pilar dengan level terendah dan habit yang paling jarang selesai
-- Menyelesaikan ketiganya memberi bonus XP dan menaikkan streak
+- Menyelesaikan seluruhnya memberi bonus XP dan menaikkan streak
 
 ### Streak dan jeda
 - Streak naik saat quest harian selesai
