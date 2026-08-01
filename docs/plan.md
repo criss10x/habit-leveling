@@ -6,7 +6,7 @@
 
 **Architecture:** Seluruh aturan permainan hidup sebagai fungsi murni di `lib/logic/` — tanpa database, tanpa `DateTime.now()`, tanggal selalu dioper sebagai argumen — sehingga bisa diuji tanpa emulator. Di atasnya, `lib/db/database.dart` memegang sqflite dan seluruh kueri, dan `lib/services/` membungkusnya dengan `ValueNotifier` untuk UI. Riwayat dipotret di momen kejadian dan tidak pernah dinilai ulang dengan pengaturan yang berlaku sekarang.
 
-**Tech Stack:** Flutter (stable), Dart, sqflite, flutter_local_notifications, timezone, permission_handler, pedometer, fl_chart, share_plus, file_picker, path_provider, flutter_lints.
+**Tech Stack:** Flutter (stable), Dart, sqflite, flutter_local_notifications, timezone, permission_handler, pedometer, fl_chart, share_plus, path_provider, flutter_lints.
 
 ## Global Constraints
 
@@ -2710,7 +2710,9 @@ Future<void> ekspor() async {
 
 - [ ] **Step 2: Impor**
 
-Alur: pilih file lewat paket pemilih berkas (belum dipilih —  dibuang di Task 7 karena menggagalkan build; evaluasi  yang dirawat tim Flutter, dan minta persetujuan pemilik repo sebelum menambahkannya) → baca → `jsonDecode` → validasi. Tolak dengan pesan jelas bila:
+Impor butuh paket pemilih berkas yang **belum dipilih**. `file_picker` dibuang saat Task 7 karena menggagalkan kompilasi `GeneratedPluginRegistrant`. Evaluasi `file_selector` yang dirawat tim Flutter, dan minta persetujuan pemilik repo sebelum menambahkannya — `AGENTS.md` melarang menambah dependensi di luar daftar tanpa izin.
+
+Alur: pilih file → baca → `jsonDecode` → validasi. Tolak dengan pesan jelas bila:
 
 - Bukan JSON yang valid: "File tidak bisa dibaca. Pastikan file berasal dari Habit Leveling."
 - `versi_skema` lebih besar dari versi aplikasi: "Cadangan ini dari versi aplikasi yang lebih baru. Perbarui aplikasi lebih dulu."
