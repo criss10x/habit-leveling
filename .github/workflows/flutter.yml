@@ -26,3 +26,11 @@ jobs:
       # tidak bisa menjalankan Gradle, jadi ini satu-satunya gerbang yang
       # membuktikan proguard-rules.pro benar-benar terpasang.
       - run: flutter build apk --release
+      # APK diunggah supaya bisa diuji manual di HP. Mesin lokal tidak bisa
+      # menjalankan Gradle, jadi tugas UI tidak punya jalur verifikasi runtime
+      # lain selain memasang hasil build ini.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: habit-leveling-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
