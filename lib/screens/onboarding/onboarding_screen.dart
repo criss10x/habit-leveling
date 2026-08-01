@@ -30,6 +30,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   int _langkah = 0;
   TimeOfDay _jam = const TimeOfDay(hour: 20, minute: 0);
+  bool _menyimpan = false;
 
   @override
   void initState() {
@@ -88,6 +89,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _selesai(List<Habit> habitList) async {
+    if (_menyimpan) return;
+    _menyimpan = true;
+    setState(() {});
     for (final h in habitList) {
       final baru = _centang[h.id!] ?? false;
       if (baru != h.aktif) {
@@ -108,43 +112,82 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          leading: _langkah > 0
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: _mundurHalaman,
-                )
-              : null,
-          title: Text('Langkah ${_langkah + 1} dari 3'),
-        ),
-        body: SafeArea(
-          child: FutureBuilder<List<Habit>>(
-            future: _habitFuture,
-            builder: (context, snapshot) {
-              final habitList = snapshot.data;
-              if (habitList == null) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              return Column(
-                children: [
-                  Expanded(
-                    child: PageView(
-                      controller: _pageController,
-                      physics: const NeverScrollableScrollPhysics(),
-                      onPageChanged: (i) => setState(() => _langkah = i),
-                      children: [
-                        _langkahSambutan(),
-                        _langkahPemilihanHabit(habitList),
-                        _langkahJamPengingat(),
-                      ],
+  Widget build(BuildContext context) => PopScope(
+        canPop: _langkah == 0,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) {
+            _mundurHalaman();
+          }
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
+            leading: _langkah > 0
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: _mundurHalaman,
+                  )
+                : null,
+            title: Text('Langkah ${_langkah + 1} dari 3'),
+          ),
+          body: SafeArea(
+            child: FutureBuilder<List<Habit>>(
+              future: _habitFuture,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'Gagal memuat daftar habit.',
+                            style: TextStyle(fontSize: 16),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 24),
+                          FilledButton(
+                            onPressed: () {
+                              setState(() {
+                                _habitFuture = widget.db.semuaHabit().then((list) {
+                                  for (final h in list) {
+                                    _centang[h.id!] = h.aktif;
+                                  }
+                                  return list;
+                                });
+                              });
+                            },
+                            child: const Text('Coba lagi'),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  _tombolBawah(habitList),
-                ],
-              );
-            },
+                  );
+                }
+                final habitList = snapshot.data;
+                if (habitList == null) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                return Column(
+                  children: [
+                    Expanded(
+                      child: PageView(
+                        controller: _pageController,
+                        physics: const NeverScrollableScrollPhysics(),
+                        onPageChanged: (i) => setState(() => _langkah = i),
+                        children: [
+                          _langkahSambutan(),
+                          _langkahPemilihanHabit(habitList),
+                          _langkahJamPengingat(),
+                        ],
+                      ),
+                    ),
+                    _tombolBawah(habitList),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       );
@@ -275,7 +318,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         aksi = adaTercentang ? _majuHalaman : null;
       default:
         label = 'Selesai';
-        aksi = () => _selesai(habitList);
+        aksi = _menyimpan ? null : () => _selesai(habitList);
     }
     return Padding(
       padding: const EdgeInsets.all(16),
