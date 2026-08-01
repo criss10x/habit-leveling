@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../data/habit.dart';
 import '../data/habit_preset.dart';
+import '../logic/xp.dart';
 
 class BarisHari {
   const BarisHari({
@@ -214,6 +215,15 @@ class AppDatabase {
     };
   }
 
+  /// XP pilar = jumlah kolom `xp` seluruh baris `logs` milik pilar itu,
+  /// ditambah bagian bonus quest pilar tersebut.
+  ///
+  /// Bonusnya diturunkan di sini, bukan disimpan di `logs`: setiap baris
+  /// `hari` yang `bonus_diambil`-nya sudah dicentang menyimpan `quest_ids`
+  /// beku, dipetakan ke pilar habit-habit itu lalu dibagi rata lewat
+  /// `bonusPerPilar`. Karena bonus tidak pernah ikut ditulis ke `logs`,
+  /// mencatat ulang salah satu habit quest — yang menimpa baris `logs`-nya —
+  /// tidak bisa menghapus bonus yang sudah diberikan.
   Future<Map<Pilar, int>> xpPerPilar() async {
     final rows = await _db.rawQuery('''
       SELECT h.pilar AS pilar, SUM(l.xp) AS total
@@ -224,6 +234,22 @@ class AppDatabase {
     for (final r in rows) {
       hasil[Pilar.values.byName(r['pilar']! as String)] =
           (r['total'] as int?) ?? 0;
+    }
+
+    final pilarPerHabit = {
+      for (final r in await _db.query('habits', columns: ['id', 'pilar']))
+        r['id']! as int: Pilar.values.byName(r['pilar']! as String),
+    };
+    final hariBonus = await _db.query('hari', where: 'bonus_diambil = 1');
+    for (final r in hariBonus) {
+      final pilarHari = _keIds(r['quest_ids'] as String?)
+          .map((id) => pilarPerHabit[id])
+          .whereType<Pilar>()
+          .toSet();
+      final bonus = bonusPerPilar(pilarHari.length);
+      for (final p in pilarHari) {
+        hasil[p] = (hasil[p] ?? 0) + bonus;
+      }
     }
     return hasil;
   }
@@ -278,6 +304,56 @@ class AppDatabase {
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
+
+  /// Menyimpan seluruh hasil `prosesRentang` dalam satu transaksi: penanda
+  /// `dijeda` pada tanggal yang menyerap jeda, dan kelima nilai meta terkait
+  /// streak. Android bisa mematikan proses kapan saja di antara tulisan;
+  /// tanpa transaksi, proses yang terhenti di tengah membuat rentang yang
+  /// sama diproses ulang saat aplikasi dibuka lagi, menghitung ganda
+  /// kenaikan streak atau jeda yang sudah terpakai.
+  Future<void> simpanHasilProsesHari({
+    required List<String> tanggalDijeda,
+    required int streak,
+    required int jedaTersedia,
+    required bool pernahPutus,
+    required bool pernahPakaiJeda,
+    required String terakhirDiproses,
+  }) async {
+    await _db.transaction((txn) async {
+      for (final t in tanggalDijeda) {
+        final rows =
+            await txn.query('hari', where: 'tanggal = ?', whereArgs: [t]);
+        if (rows.isEmpty) continue;
+        final b = _keHari(rows.first);
+        await txn.insert(
+          'hari',
+          {
+            'tanggal': b.tanggal,
+            'quest_ids': _dariIds(b.questIds),
+            'aktif_ids': _dariIds(b.aktifIds),
+            'bonus_diambil': b.bonusDiambil ? 1 : 0,
+            'dijeda': 1,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      final meta = {
+        'streak': '$streak',
+        'jeda_tersedia': '$jedaTersedia',
+        'pernah_putus': pernahPutus ? '1' : '0',
+        'pernah_pakai_jeda': pernahPakaiJeda ? '1' : '0',
+        'terakhir_diproses': terakhirDiproses,
+      };
+      for (final e in meta.entries) {
+        await txn.insert(
+          'meta',
+          {'key': e.key, 'nilai': e.value},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  }
 
   Future<String?> meta(String key) async {
     final rows = await _db.query('meta', where: 'key = ?', whereArgs: [key]);

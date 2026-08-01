@@ -170,7 +170,7 @@ class HabitService {
         );
         selesaiPerTanggal[t] = false;
       } else {
-        selesaiPerTanggal[t] = baris.questIds.isNotEmpty &&
+        selesaiPerTanggal[t] =
             hariSempurna(baris.questIds, await _db.xpHari(t), xpDasar);
       }
     }
@@ -187,27 +187,14 @@ class HabitService {
       (t) => selesaiPerTanggal[t] ?? false,
     );
 
-    for (final t in hasil.tanggalDijeda) {
-      final b = await _db.hari(t);
-      if (b != null) {
-        await _db.simpanHari(BarisHari(
-          tanggal: b.tanggal,
-          questIds: b.questIds,
-          aktifIds: b.aktifIds,
-          bonusDiambil: b.bonusDiambil,
-          dijeda: true,
-        ));
-      }
-    }
-
-    await _db.setMeta('streak', '${hasil.keadaan.streak}');
-    await _db.setMeta('jeda_tersedia', '${hasil.keadaan.jeda}');
-    await _db.setMeta('pernah_putus', hasil.keadaan.pernahPutus ? '1' : '0');
-    await _db.setMeta(
-      'pernah_pakai_jeda',
-      hasil.keadaan.pernahPakaiJeda ? '1' : '0',
+    await _db.simpanHasilProsesHari(
+      tanggalDijeda: hasil.tanggalDijeda,
+      streak: hasil.keadaan.streak,
+      jedaTersedia: hasil.keadaan.jeda,
+      pernahPutus: hasil.keadaan.pernahPutus,
+      pernahPakaiJeda: hasil.keadaan.pernahPakaiJeda,
+      terakhirDiproses: tanggalUrut.last,
     );
-    await _db.setMeta('terakhir_diproses', tanggalUrut.last);
   }
 
   Future<void> _cekBonusQuest(DateTime sekarang) async {
@@ -220,23 +207,10 @@ class HabitService {
     final xpHari = await _db.xpHari(tanggal);
     if (!hariSempurna(baris.questIds, xpHari, xpDasar)) return;
 
-    // Bonus dibagi rata ke pilar yang terlibat, dicatat sebagai tambahan xp
-    // pada log habit quest itu sendiri supaya tetap terbawa agregat per pilar.
-    final pilarQuest = baris.questIds
-        .map((id) => habit.firstWhere((h) => h.id == id).pilar)
-        .toSet();
-    final perPilar = bonusPerPilar(pilarQuest.length);
-    for (final pilar in pilarQuest) {
-      final id = baris.questIds.firstWhere(
-        (i) => habit.firstWhere((h) => h.id == i).pilar == pilar,
-      );
-      await _db.catat(
-        habitId: id,
-        tanggal: tanggal,
-        nilai: (await _db.nilaiHari(tanggal))[id] ?? 0,
-        xp: (xpHari[id] ?? 0) + perPilar,
-      );
-    }
+    // Hanya menandai bonus diambil. Nilai bonusnya sendiri tidak pernah
+    // disimpan di `logs` — diturunkan saat baca oleh `xpPerPilar` dari
+    // `questIds` yang beku ini plus flag ini, supaya mencatat ulang salah
+    // satu habit quest tidak bisa menghapus bonus yang sudah diberikan.
     await _db.simpanHari(BarisHari(
       tanggal: baris.tanggal,
       questIds: baris.questIds,

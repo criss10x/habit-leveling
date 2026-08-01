@@ -2222,23 +2222,10 @@ Lanjutan kelas `HabitService`:
     final xpHari = await _db.xpHari(tanggal);
     if (!hariSempurna(baris.questIds, xpHari, xpDasar)) return;
 
-    // Bonus dibagi rata ke pilar yang terlibat, dicatat sebagai tambahan xp
-    // pada log habit quest itu sendiri supaya tetap terbawa agregat per pilar.
-    final pilarQuest = baris.questIds
-        .map((id) => habit.firstWhere((h) => h.id == id).pilar)
-        .toSet();
-    final perPilar = bonusPerPilar(pilarQuest.length);
-    for (final pilar in pilarQuest) {
-      final id = baris.questIds.firstWhere(
-        (i) => habit.firstWhere((h) => h.id == i).pilar == pilar,
-      );
-      await _db.catat(
-        habitId: id,
-        tanggal: tanggal,
-        nilai: (await _db.nilaiHari(tanggal))[id] ?? 0,
-        xp: (xpHari[id] ?? 0) + perPilar,
-      );
-    }
+    // Hanya menandai bonus diambil. Nilai bonusnya sendiri tidak pernah
+    // disimpan di `logs` — diturunkan saat baca oleh `xpPerPilar` dari
+    // `questIds` yang beku ini plus flag ini, supaya mencatat ulang salah
+    // satu habit quest tidak bisa menghapus bonus yang sudah diberikan.
     await _db.simpanHari(BarisHari(
       tanggal: baris.tanggal,
       questIds: baris.questIds,
@@ -2277,7 +2264,7 @@ Lanjutan kelas `HabitService`:
   }
 ```
 
-Perhatikan `_cekBonusQuest`: bonus ditambahkan ke kolom `xp` log habit quest, jadi ia otomatis ikut agregat `xpPerPilar` tanpa tabel baru. Karena `bonus_diambil` dicek lebih dulu, bonus tidak bisa ditambahkan dua kali.
+Perhatikan `_cekBonusQuest`: satu-satunya efeknya adalah mencentang `bonus_diambil` pada baris `hari`. Bonusnya sendiri tidak pernah ditulis ke `logs` — `xpPerPilar` menurunkannya saat baca dari `quest_ids` yang beku plus flag ini. Alasannya: `catatHabit` menghitung ulang dan menimpa kolom `xp` baris `logs` setiap kali sebuah habit dicatat. Bila bonus dulu ditambahkan ke `xp` log habit quest, mencatat ulang habit quest itu — misalnya memperbarui nilainya di hari yang sama — menimpa baris itu dengan xp dasar polos dan diam-diam menghapus bonus yang sudah diberikan, sementara `bonus_diambil` yang sudah `true` mencegahnya ditambahkan lagi. Itu pelanggaran langsung terhadap "XP tidak pernah berkurang". Karena `bonus_diambil` dicek lebih dulu, bonus tetap tidak bisa dihitung dua kali walau diturunkan saat baca.
 
 - [ ] **Step 7: Verifikasi**
 
