@@ -87,7 +87,6 @@ dependencies:
   pedometer: ^4.0.1
   fl_chart: ^1.2.0
   share_plus: ^12.0.2
-  file_picker: ^11.0.3
   path_provider: ^2.1.2
 
 dev_dependencies:
@@ -2711,7 +2710,7 @@ Future<void> ekspor() async {
 
 - [ ] **Step 2: Impor**
 
-Alur: `FilePicker.platform.pickFiles` → baca → `jsonDecode` → validasi. Tolak dengan pesan jelas bila:
+Alur: pilih file lewat paket pemilih berkas (belum dipilih —  dibuang di Task 7 karena menggagalkan build; evaluasi  yang dirawat tim Flutter, dan minta persetujuan pemilik repo sebelum menambahkannya) → baca → `jsonDecode` → validasi. Tolak dengan pesan jelas bila:
 
 - Bukan JSON yang valid: "File tidak bisa dibaca. Pastikan file berasal dari Habit Leveling."
 - `versi_skema` lebih besar dari versi aplikasi: "Cadangan ini dari versi aplikasi yang lebih baru. Perbarui aplikasi lebih dulu."
