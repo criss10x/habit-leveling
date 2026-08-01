@@ -46,3 +46,20 @@ List<int> pilihQuest(List<KandidatQuest> kandidat, String tanggal) {
     });
   return urut.take(3).map((k) => k.habitId).toList();
 }
+
+/// Sebuah hari sempurna bila seluruh habit yang aktif PADA HARI ITU mencapai
+/// xp dasarnya. Perbandingan memakai xp beku, bukan target yang berlaku
+/// sekarang — target boleh berubah, dan riwayat tidak boleh ikut berubah.
+///
+/// Fungsi yang sama dipakai untuk menjawab "quest selesai": panggil dengan
+/// `questIds` sebagai argumen pertama.
+bool hariSempurna(
+  List<int> aktifIds,
+  Map<int, int> xpHari,
+  Map<int, int> xpDasarPerHabit,
+) {
+  if (aktifIds.isEmpty) return false;
+  return aktifIds.every(
+    (id) => (xpHari[id] ?? 0) >= (xpDasarPerHabit[id] ?? 0),
+  );
+}
