@@ -15,6 +15,10 @@ import 'habit_service.dart' show tanggalKe;
 /// keduanya berakhir sama (`tersedia = false`) tapi hanya yang pertama
 /// tidak menampilkan banner — tidak ada yang bisa dilakukan user soal
 /// perangkat yang memang tidak punya sensornya.
+///
+/// Diverifkasi di `pedometer` versi 4.2.0. Kode internal ini mungkin berubah
+/// di versi mendatang — jika terjadi perubahan, cek `SensorStreamHandler.kt`
+/// lagi untuk nilai baru.
 const _kodeSensorTidakAda = '1';
 
 /// Menyambungkan sensor langkah Android ke habit `langkah_harian`.
@@ -38,6 +42,12 @@ class StepService {
   bool tanpaSensor = false;
 
   StreamSubscription<StepCount>? _langganan;
+
+  /// Bendera untuk mendeteksi `berhenti()` yang terpanggil saat `mulai()`
+  /// masih menunggu (await izin, dll). Tanpa ini, subscription bisa terbuat
+  /// setelah widget sudah dihancurkan, hidup selamanya tanpa dibatalkan.
+  /// Sekali dihentikan, service tidak akan dimulai lagi (lifecycle per mount).
+  bool _dihentikan = false;
 
   Future<bool> mintaIzin() async {
     final status = await Permission.activityRecognition.request();
@@ -74,13 +84,24 @@ class StepService {
   /// `onLangkah` hanya dipanggil saat langkah hari ini benar-benar berubah
   /// nilainya — sensor mengirim event jauh lebih sering daripada itu, dan
   /// pemanggilnya mencatat ke database setiap kali dipanggil.
+  ///
+  /// Parameter `sekarang` tidak dipakai (waktu sensor pakai `DateTime.now()`
+  /// saat event tiba), tapi disimpan agar skalabilitasnya terbuka kalau nanti
+  /// lojik berubah. Menggunakan timestamp stale dari subscribe-time akan
+  /// memecah logika rolloer tengah malam.
   Future<void> mulai(
     DateTime sekarang,
     void Function(int langkah) onLangkah,
   ) async {
     if (!await mintaIzin()) return;
 
+    // Periksa lagi setelah await: bisa `berhenti()` dipanggil di sela ini.
+    if (_dihentikan) return;
+
     int? langkahTerakhir;
+    // Periksa terakhir kali sebelum berlangganan, untuk terjamin tidak ada
+    // subscription yang tercipta setelah widget hancur.
+    if (_dihentikan) return;
     _langganan = Pedometer.stepCountStream.listen(
       (event) async {
         final langkah = await langkahHariIni(event.steps, DateTime.now());
@@ -98,8 +119,10 @@ class StepService {
 
   /// Membatalkan langganan sensor. Wajib dipanggil dari `dispose` layar
   /// yang memakainya, supaya stream tidak terus hidup setelah widgetnya
-  /// dibongkar.
+  /// dibongkar. Juga memberi tahu `mulai()` yang mungkin sedang await, supaya
+  /// tidak ada subscription yang tercipta setelah ini.
   void berhenti() {
+    _dihentikan = true;
     _langganan?.cancel();
     _langganan = null;
   }
