@@ -81,13 +81,13 @@ dependencies:
     sdk: flutter
   sqflite: ^2.3.0
   path: ^1.9.0
-  flutter_local_notifications: ^17.0.0
-  timezone: ^0.9.2
-  permission_handler: ^11.3.0
+  flutter_local_notifications: ^22.2.0
+  timezone: ^0.11.1
+  permission_handler: ^13.0.0
   pedometer: ^4.0.1
-  fl_chart: ^0.66.0
-  share_plus: ^7.2.0
-  file_picker: ^10.3.4  # 6.x masih memakai v1 embedding, gagal build di Flutter 3.44
+  fl_chart: ^1.2.0
+  share_plus: ^12.0.2
+  file_picker: ^11.0.3
   path_provider: ^2.1.2
 
 dev_dependencies:
