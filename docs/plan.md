@@ -6,14 +6,14 @@
 
 **Architecture:** Seluruh aturan permainan hidup sebagai fungsi murni di `lib/logic/` — tanpa database, tanpa `DateTime.now()`, tanggal selalu dioper sebagai argumen — sehingga bisa diuji tanpa emulator. Di atasnya, `lib/db/database.dart` memegang sqflite dan seluruh kueri, dan `lib/services/` membungkusnya dengan `ValueNotifier` untuk UI. Riwayat dipotret di momen kejadian dan tidak pernah dinilai ulang dengan pengaturan yang berlaku sekarang.
 
-**Tech Stack:** Flutter (stable), Dart, sqflite, flutter_local_notifications, timezone, permission_handler, pedometer, fl_chart, share_plus, file_picker, path_provider, flutter_lints.
+**Tech Stack:** Flutter (stable), Dart, sqflite, flutter_local_notifications, timezone, permission_handler, pedometer, fl_chart, share_plus, path_provider, flutter_lints.
 
 ## Global Constraints
 
 Berlaku untuk **setiap** tugas di bawah ini.
 
 - Baca `docs/design.md` dan `docs/decisions.md` sebelum menulis kode. Bila rencana ini bertentangan dengan `docs/design.md`, `docs/design.md` yang menang — dan laporkan pertentangannya.
-- Bahasa antarmuka **Indonesia**. Nama variabel, fungsi, dan kelas **Inggris**. Komentar boleh Indonesia.
+- Bahasa antarmuka **Indonesia**. Komentar boleh Indonesia. Penamaan kode: istilah domain Indonesia (`Pilar`, `jeda`, `xpDasar`, `hitungXp`), selebihnya Inggris. Lihat `AGENTS.md`.
 - `lib/logic/` hanya berisi fungsi murni. Dilarang menyentuh database, `DateTime.now()`, atau `SharedPreferences` di dalamnya.
 - **Riwayat dipotret di momen kejadian.** XP dibekukan di `logs.xp` saat pencatatan. `quest_ids` dan `aktif_ids` dibekukan di baris `hari` saat hari itu dimulai. Pertanyaan "habit ini selesai atau belum" **selalu** dijawab `logs.xp == xp_dasar`, tidak pernah `nilai >= target`.
 - Kunci habit (`habit.key`) tidak boleh diubah setelah rilis.
@@ -81,13 +81,12 @@ dependencies:
     sdk: flutter
   sqflite: ^2.3.0
   path: ^1.9.0
-  flutter_local_notifications: ^17.0.0
-  timezone: ^0.9.2
-  permission_handler: ^11.3.0
+  flutter_local_notifications: ^22.2.0
+  timezone: ^0.11.1
+  permission_handler: ^13.0.0
   pedometer: ^4.0.1
-  fl_chart: ^0.66.0
-  share_plus: ^7.2.0
-  file_picker: ^6.1.1
+  fl_chart: ^1.2.0
+  share_plus: ^12.0.2
   path_provider: ^2.1.2
 
 dev_dependencies:
@@ -131,6 +130,20 @@ release {
 - [ ] **Step 4: Set minSdk dan izin**
 
 Di `android/app/build.gradle`, `defaultConfig`: `minSdkVersion 26`.
+
+Aktifkan juga core library desugaring. `flutter_local_notifications` menolak dibangun tanpanya, dan kegagalannya baru muncul saat `assembleRelease` — bukan saat `pub get` maupun `flutter analyze`:
+
+```kotlin
+android {
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+}
+```
 
 Di `android/app/src/main/AndroidManifest.xml`, di dalam `<manifest>` sebelum `<application>`:
 
@@ -850,14 +863,24 @@ class KandidatQuest {
   final int selesai7Hari;
 }
 
-/// Hash yang stabil antar proses. `String.hashCode` bawaan Dart tidak
-/// dijamin sama antar eksekusi, dan quest harus terkunci oleh tanggal.
+/// Hash deterministik yang stabil antar proses. `String.hashCode` bawaan Dart
+/// tidak dijamin sama antar eksekusi, dan quest harus terkunci oleh tanggal.
+///
+/// Tahap avalanche di bawah wajib ada. Tanpa itu, seluruh kandidat pada satu
+/// tanggal hanya bergeser oleh konstanta yang sama sehingga urutan seed jatuh
+/// kembali menjadi urutan habitId, dan tanggal tidak berpengaruh sama sekali.
 int _seed(String tanggal, int habitId) {
   var h = 17;
   for (final c in tanggal.codeUnits) {
     h = (h * 31 + c) & 0x7fffffff;
   }
-  return (h * 31 + habitId) & 0x7fffffff;
+  var x = (h * 31 + habitId) & 0xffffffff;
+  x ^= x >> 16;
+  x = (x * 0x85ebca6b) & 0xffffffff;
+  x ^= x >> 13;
+  x = (x * 0xc2b2ae35) & 0xffffffff;
+  x ^= x >> 16;
+  return x;
 }
 
 List<int> pilihQuest(List<KandidatQuest> kandidat, String tanggal) {
@@ -1387,7 +1410,7 @@ const List<Habit> habitPreset = [
     pilar: Pilar.tidur,
     tipe: TipeHabit.waktu,
     target: 1380, // 23:00
-    satuan: 'jam',
+    satuan: '',
     xpDasar: 15,
   ),
   Habit(
@@ -1405,7 +1428,7 @@ const List<Habit> habitPreset = [
     pilar: Pilar.tidur,
     tipe: TipeHabit.waktu,
     target: 360, // 06:00
-    satuan: 'jam',
+    satuan: '',
     xpDasar: 10,
   ),
   Habit(
@@ -1671,13 +1694,24 @@ Di dalam kelas `AppDatabase`:
         'is_custom': 1,
       });
 
+  /// Menghapus habit custom beserta seluruh catatannya.
+  ///
+  /// Ini satu-satunya jalur di aplikasi yang boleh menurunkan XP, dan hanya
+  /// berlaku untuk habit custom. Penghapusan log digantung pada keberhasilan
+  /// penghapusan barisnya, supaya id habit preset yang salah masuk tidak bisa
+  /// memusnahkan riwayatnya. Keduanya dalam satu transaksi agar tidak mungkin
+  /// tersisa setengah jalan.
   Future<void> hapusCustom(int habitId) async {
-    await _db.delete('logs', where: 'habit_id = ?', whereArgs: [habitId]);
-    await _db.delete(
-      'habits',
-      where: 'id = ? AND is_custom = 1',
-      whereArgs: [habitId],
-    );
+    await _db.transaction((txn) async {
+      final terhapus = await txn.delete(
+        'habits',
+        where: 'id = ? AND is_custom = 1',
+        whereArgs: [habitId],
+      );
+      if (terhapus > 0) {
+        await txn.delete('logs', where: 'habit_id = ?', whereArgs: [habitId]);
+      }
+    });
   }
 ```
 
@@ -2188,23 +2222,10 @@ Lanjutan kelas `HabitService`:
     final xpHari = await _db.xpHari(tanggal);
     if (!hariSempurna(baris.questIds, xpHari, xpDasar)) return;
 
-    // Bonus dibagi rata ke pilar yang terlibat, dicatat sebagai tambahan xp
-    // pada log habit quest itu sendiri supaya tetap terbawa agregat per pilar.
-    final pilarQuest = baris.questIds
-        .map((id) => habit.firstWhere((h) => h.id == id).pilar)
-        .toSet();
-    final perPilar = bonusPerPilar(pilarQuest.length);
-    for (final pilar in pilarQuest) {
-      final id = baris.questIds.firstWhere(
-        (i) => habit.firstWhere((h) => h.id == i).pilar == pilar,
-      );
-      await _db.catat(
-        habitId: id,
-        tanggal: tanggal,
-        nilai: (await _db.nilaiHari(tanggal))[id] ?? 0,
-        xp: (xpHari[id] ?? 0) + perPilar,
-      );
-    }
+    // Hanya menandai bonus diambil. Nilai bonusnya sendiri tidak pernah
+    // disimpan di `logs` — diturunkan saat baca oleh `xpPerPilar` dari
+    // `questIds` yang beku ini plus flag ini, supaya mencatat ulang salah
+    // satu habit quest tidak bisa menghapus bonus yang sudah diberikan.
     await _db.simpanHari(BarisHari(
       tanggal: baris.tanggal,
       questIds: baris.questIds,
@@ -2243,7 +2264,7 @@ Lanjutan kelas `HabitService`:
   }
 ```
 
-Perhatikan `_cekBonusQuest`: bonus ditambahkan ke kolom `xp` log habit quest, jadi ia otomatis ikut agregat `xpPerPilar` tanpa tabel baru. Karena `bonus_diambil` dicek lebih dulu, bonus tidak bisa ditambahkan dua kali.
+Perhatikan `_cekBonusQuest`: satu-satunya efeknya adalah mencentang `bonus_diambil` pada baris `hari`. Bonusnya sendiri tidak pernah ditulis ke `logs` — `xpPerPilar` menurunkannya saat baca dari `quest_ids` yang beku plus flag ini. Alasannya: `catatHabit` menghitung ulang dan menimpa kolom `xp` baris `logs` setiap kali sebuah habit dicatat. Bila bonus dulu ditambahkan ke `xp` log habit quest, mencatat ulang habit quest itu — misalnya memperbarui nilainya di hari yang sama — menimpa baris itu dengan xp dasar polos dan diam-diam menghapus bonus yang sudah diberikan, sementara `bonus_diambil` yang sudah `true` mencegahnya ditambahkan lagi. Itu pelanggaran langsung terhadap "XP tidak pernah berkurang". Karena `bonus_diambil` dicek lebih dulu, bonus tetap tidak bisa dihitung dua kali walau diturunkan saat baca.
 
 - [ ] **Step 7: Verifikasi**
 
@@ -2676,7 +2697,9 @@ Future<void> ekspor() async {
 
 - [ ] **Step 2: Impor**
 
-Alur: `FilePicker.platform.pickFiles` → baca → `jsonDecode` → validasi. Tolak dengan pesan jelas bila:
+Impor butuh paket pemilih berkas yang **belum dipilih**. `file_picker` dibuang saat Task 7 karena menggagalkan kompilasi `GeneratedPluginRegistrant`. Evaluasi `file_selector` yang dirawat tim Flutter, dan minta persetujuan pemilik repo sebelum menambahkannya — `AGENTS.md` melarang menambah dependensi di luar daftar tanpa izin.
+
+Alur: pilih file → baca → `jsonDecode` → validasi. Tolak dengan pesan jelas bila:
 
 - Bukan JSON yang valid: "File tidak bisa dibaca. Pastikan file berasal dari Habit Leveling."
 - `versi_skema` lebih besar dari versi aplikasi: "Cadangan ini dari versi aplikasi yang lebih baru. Perbarui aplikasi lebih dulu."
