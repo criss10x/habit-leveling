@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/habit.dart';
 import '../../db/database.dart';
 import '../../services/habit_service.dart';
+import '../../services/step_service.dart';
 import '../../widgets/bar_xp.dart';
 import '../../widgets/kartu_habit.dart';
 import '../../widgets/popup_medali.dart';
@@ -23,6 +24,41 @@ class BerandaScreen extends StatefulWidget {
 }
 
 class _BerandaScreenState extends State<BerandaScreen> {
+  late final StepService _stepService;
+
+  @override
+  void initState() {
+    super.initState();
+    _stepService = StepService(widget.db);
+    _mulaiLangkah();
+  }
+
+  // Izin sensor diminta di sini, saat beranda pertama kali butuh — bukan
+  // saat onboarding. Habit id dicari langsung dari database, bukan dari
+  // `service.keadaan`, supaya tidak bergantung pada `keadaan.value` yang
+  // mungkin belum terisi kalau sensor sempat mengirim event lebih dulu.
+  Future<void> _mulaiLangkah() async {
+    final habit = await widget.db.semuaHabit();
+    Habit? langkahHarian;
+    for (final h in habit) {
+      if (h.key == 'langkah_harian') {
+        langkahHarian = h;
+        break;
+      }
+    }
+    if (langkahHarian == null) return;
+    final habitId = langkahHarian.id!;
+    await _stepService.mulai(DateTime.now(), (langkah) {
+      widget.service.catatHabit(habitId, langkah, DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _stepService.berhenti();
+    super.dispose();
+  }
+
   Future<void> _catat(Habit habit, int nilai) async {
     await widget.service.catatHabit(habit.id!, nilai, DateTime.now());
     final medaliBaru = await widget.service.periksaMedali(DateTime.now());
@@ -63,72 +99,109 @@ class _BerandaScreenState extends State<BerandaScreen> {
               aktif.where((h) => !questIds.contains(h.id)).toList();
           final tema = Theme.of(context);
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              BarXp(
-                xp: keadaan.xpGlobal,
-                level: keadaan.levelGlobal,
-                global: true,
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  const Icon(Icons.local_fire_department, color: Colors.deepOrange),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Streak ${keadaan.streakTampil} hari',
-                    style: tema.textTheme.titleMedium,
-                  ),
-                  const Spacer(),
-                  const Icon(Icons.shield_outlined),
-                  const SizedBox(width: 4),
-                  Text('${keadaan.jeda} jeda tersisa'),
-                ],
-              ),
-              const SizedBox(height: 24),
-              if (quest.isNotEmpty) ...[
-                Text('Quest Hari Ini', style: tema.textTheme.titleLarge),
-                const SizedBox(height: 8),
-                for (final h in quest)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: KartuHabit(
-                      habit: h,
-                      nilai: keadaan.nilaiHariIni[h.id] ?? 0,
-                      xp: keadaan.xpHariIni[h.id] ?? 0,
-                      besar: true,
-                      onCatat: (nilai) => _catat(h, nilai),
-                      onInfo: () => _info(h),
+          return ValueListenableBuilder<bool>(
+            valueListenable: _stepService.tersedia,
+            builder: (context, sensorTersedia, _) => ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (!sensorTersedia && !_stepService.tanpaSensor)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: tema.colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: tema.colorScheme.onErrorContainer,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Izin sensor langkah tidak aktif. Langkah '
+                            'harian dicatat manual.',
+                            style: TextStyle(
+                              color: tema.colorScheme.onErrorContainer,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                const SizedBox(height: 12),
-              ],
-              if (lainnya.isNotEmpty) ...[
-                Text('Habit Lainnya', style: tema.textTheme.titleLarge),
-                const SizedBox(height: 8),
-                for (final h in lainnya)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: KartuHabit(
-                      habit: h,
-                      nilai: keadaan.nilaiHariIni[h.id] ?? 0,
-                      xp: keadaan.xpHariIni[h.id] ?? 0,
-                      onCatat: (nilai) => _catat(h, nilai),
-                      onInfo: () => _info(h),
-                    ),
-                  ),
-              ],
-              if (aktif.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.only(top: 32),
-                  child: Text(
-                    'Belum ada habit aktif. Aktifkan habit di Pengaturan '
-                    'untuk mulai mencatat.',
-                    textAlign: TextAlign.center,
-                  ),
+                BarXp(
+                  xp: keadaan.xpGlobal,
+                  level: keadaan.levelGlobal,
+                  global: true,
                 ),
-            ],
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.local_fire_department,
+                      color: Colors.deepOrange,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Streak ${keadaan.streakTampil} hari',
+                      style: tema.textTheme.titleMedium,
+                    ),
+                    const Spacer(),
+                    const Icon(Icons.shield_outlined),
+                    const SizedBox(width: 4),
+                    Text('${keadaan.jeda} jeda tersisa'),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                if (quest.isNotEmpty) ...[
+                  Text('Quest Hari Ini', style: tema.textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  for (final h in quest)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: KartuHabit(
+                        habit: h,
+                        nilai: keadaan.nilaiHariIni[h.id] ?? 0,
+                        xp: keadaan.xpHariIni[h.id] ?? 0,
+                        besar: true,
+                        sensorTersedia:
+                            h.sumber == 'pedometer' ? sensorTersedia : true,
+                        onCatat: (nilai) => _catat(h, nilai),
+                        onInfo: () => _info(h),
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                ],
+                if (lainnya.isNotEmpty) ...[
+                  Text('Habit Lainnya', style: tema.textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  for (final h in lainnya)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: KartuHabit(
+                        habit: h,
+                        nilai: keadaan.nilaiHariIni[h.id] ?? 0,
+                        xp: keadaan.xpHariIni[h.id] ?? 0,
+                        sensorTersedia:
+                            h.sumber == 'pedometer' ? sensorTersedia : true,
+                        onCatat: (nilai) => _catat(h, nilai),
+                        onInfo: () => _info(h),
+                      ),
+                    ),
+                ],
+                if (aktif.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 32),
+                    child: Text(
+                      'Belum ada habit aktif. Aktifkan habit di Pengaturan '
+                      'untuk mulai mencatat.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+              ],
+            ),
           );
         },
       );

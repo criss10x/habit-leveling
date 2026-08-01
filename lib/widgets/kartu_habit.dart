@@ -38,6 +38,7 @@ class KartuHabit extends StatelessWidget {
     required this.onCatat,
     required this.onInfo,
     this.besar = false,
+    this.sensorTersedia = true,
   });
 
   final Habit habit;
@@ -49,6 +50,11 @@ class KartuHabit extends StatelessWidget {
   final ValueChanged<int> onCatat;
   final VoidCallback onInfo;
   final bool besar;
+
+  /// Hanya relevan untuk `habit.sumber == 'pedometer'`. `false` berarti
+  /// sensor gagal (izin ditolak, tidak ada sensor, atau error), sehingga
+  /// kontrol tambah harus tetap muncul supaya user bisa mengisi manual.
+  final bool sensorTersedia;
 
   bool get _selesai => xp >= habit.xpDasar;
 
@@ -77,9 +83,11 @@ class KartuHabit extends StatelessWidget {
   }
 
   Widget? _kontrolTambah(BuildContext context) {
-    // Sensor mengisi nilainya sendiri (Task 11); belum ada input manual
-    // selama sumbernya masih diharapkan dari pedometer.
-    if (habit.sumber == 'pedometer') return null;
+    // Sensor mengisi nilainya sendiri selama tersedia. Begitu sensor gagal
+    // (izin ditolak, tidak ada sensor, error) habit ini jatuh ke input
+    // manual seperti habit lain — tidak ada jalur kode terpisah, jadi ia
+    // ikut logika di bawah (satuan 'langkah' -> dialog "Isi angka").
+    if (habit.sumber == 'pedometer' && sensorTersedia) return null;
 
     if (habit.tipe == TipeHabit.waktu) {
       return OutlinedButton.icon(
