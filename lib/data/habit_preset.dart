@@ -97,7 +97,7 @@ const List<Habit> habitPreset = [
     pilar: Pilar.tidur,
     tipe: TipeHabit.waktu,
     target: 1380, // 23:00
-    satuan: 'jam',
+    satuan: '',
     xpDasar: 15,
   ),
   Habit(
@@ -115,7 +115,7 @@ const List<Habit> habitPreset = [
     pilar: Pilar.tidur,
     tipe: TipeHabit.waktu,
     target: 360, // 06:00
-    satuan: 'jam',
+    satuan: '',
     xpDasar: 10,
   ),
   Habit(

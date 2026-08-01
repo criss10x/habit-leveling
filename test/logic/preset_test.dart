@@ -34,4 +34,49 @@ void main() {
     final otomatis = habitPreset.where((h) => h.sumber == 'pedometer');
     expect(otomatis.map((h) => h.key), ['langkah_harian']);
   });
+
+  test('setiap kunci saran awal ada di habitPreset', () {
+    final presetKeys = habitPreset.map((h) => h.key).toSet();
+    for (final key in saranAwal) {
+      expect(
+        presetKeys.contains(key),
+        true,
+        reason: 'kunci $key ada di saranAwal tapi tidak ada di habitPreset',
+      );
+    }
+  });
+
+  test('nilai penting habit tersimpan dengan benar', () {
+    final habitByKey = {for (final h in habitPreset) h.key: h};
+
+    // langkah_harian
+    expect(habitByKey['langkah_harian']?.target, 5000);
+    expect(habitByKey['langkah_harian']?.satuan, 'langkah');
+    expect(habitByKey['langkah_harian']?.tipe, TipeHabit.hitung);
+    expect(habitByKey['langkah_harian']?.xpDasar, 10);
+
+    // durasi_tidur
+    expect(habitByKey['durasi_tidur']?.target, 420);
+    expect(habitByKey['durasi_tidur']?.satuan, 'menit');
+    expect(habitByKey['durasi_tidur']?.tipe, TipeHabit.hitung);
+    expect(habitByKey['durasi_tidur']?.xpDasar, 15);
+
+    // tidur_sebelum_23
+    expect(habitByKey['tidur_sebelum_23']?.target, 1380);
+    expect(habitByKey['tidur_sebelum_23']?.satuan, '');
+    expect(habitByKey['tidur_sebelum_23']?.tipe, TipeHabit.waktu);
+    expect(habitByKey['tidur_sebelum_23']?.xpDasar, 15);
+
+    // bangun_konsisten
+    expect(habitByKey['bangun_konsisten']?.target, 360);
+    expect(habitByKey['bangun_konsisten']?.satuan, '');
+    expect(habitByKey['bangun_konsisten']?.tipe, TipeHabit.waktu);
+    expect(habitByKey['bangun_konsisten']?.xpDasar, 10);
+
+    // minum_air
+    expect(habitByKey['minum_air']?.target, 8);
+    expect(habitByKey['minum_air']?.satuan, 'gelas');
+    expect(habitByKey['minum_air']?.tipe, TipeHabit.hitung);
+    expect(habitByKey['minum_air']?.xpDasar, 10);
+  });
 }
