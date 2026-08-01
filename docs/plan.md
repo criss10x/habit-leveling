@@ -1695,13 +1695,24 @@ Di dalam kelas `AppDatabase`:
         'is_custom': 1,
       });
 
+  /// Menghapus habit custom beserta seluruh catatannya.
+  ///
+  /// Ini satu-satunya jalur di aplikasi yang boleh menurunkan XP, dan hanya
+  /// berlaku untuk habit custom. Penghapusan log digantung pada keberhasilan
+  /// penghapusan barisnya, supaya id habit preset yang salah masuk tidak bisa
+  /// memusnahkan riwayatnya. Keduanya dalam satu transaksi agar tidak mungkin
+  /// tersisa setengah jalan.
   Future<void> hapusCustom(int habitId) async {
-    await _db.delete('logs', where: 'habit_id = ?', whereArgs: [habitId]);
-    await _db.delete(
-      'habits',
-      where: 'id = ? AND is_custom = 1',
-      whereArgs: [habitId],
-    );
+    await _db.transaction((txn) async {
+      final terhapus = await txn.delete(
+        'habits',
+        where: 'id = ? AND is_custom = 1',
+        whereArgs: [habitId],
+      );
+      if (terhapus > 0) {
+        await txn.delete('logs', where: 'habit_id = ?', whereArgs: [habitId]);
+      }
+    });
   }
 ```
 

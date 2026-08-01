@@ -153,13 +153,24 @@ class AppDatabase {
         'is_custom': 1,
       });
 
+  /// Menghapus habit custom beserta seluruh catatannya.
+  ///
+  /// Ini satu-satunya jalur di aplikasi yang boleh menurunkan XP, dan hanya
+  /// berlaku untuk habit custom. Penghapusan log digantung pada keberhasilan
+  /// penghapusan barisnya, supaya id habit preset yang salah masuk tidak bisa
+  /// memusnahkan riwayatnya. Keduanya dalam satu transaksi agar tidak mungkin
+  /// tersisa setengah jalan.
   Future<void> hapusCustom(int habitId) async {
-    await _db.delete('logs', where: 'habit_id = ?', whereArgs: [habitId]);
-    await _db.delete(
-      'habits',
-      where: 'id = ? AND is_custom = 1',
-      whereArgs: [habitId],
-    );
+    await _db.transaction((txn) async {
+      final terhapus = await txn.delete(
+        'habits',
+        where: 'id = ? AND is_custom = 1',
+        whereArgs: [habitId],
+      );
+      if (terhapus > 0) {
+        await txn.delete('logs', where: 'habit_id = ?', whereArgs: [habitId]);
+      }
+    });
   }
 
   Future<void> catat({
@@ -306,9 +317,30 @@ class AppDatabase {
     return hasil;
   }
 
+  /// Mengganti seluruh data dari impor backup atau pemulihan.
+  ///
+  /// Memvalidasi setiap baris habit sebelum mengganti tabel — `pilar` dan
+  /// `tipe` harus merupakan nama enum yang valid. Jika ada yang tidak sesuai,
+  /// melempar `FormatException` dan membiarkan data yang lama utuh.
   Future<void> gantiSemua(
     Map<String, List<Map<String, Object?>>> data,
   ) async {
+    final habitRows = data['habits'] ?? const [];
+    for (final baris in habitRows) {
+      final pilarStr = baris['pilar'];
+      final tipeStr = baris['tipe'];
+      if (pilarStr is String) {
+        if (!Pilar.values.any((p) => p.name == pilarStr)) {
+          throw FormatException('Pilar tidak dikenal: $pilarStr');
+        }
+      }
+      if (tipeStr is String) {
+        if (!TipeHabit.values.any((t) => t.name == tipeStr)) {
+          throw FormatException('Tipe habit tidak dikenal: $tipeStr');
+        }
+      }
+    }
+
     await _db.transaction((txn) async {
       for (final t in _tabel) {
         await txn.delete(t);
